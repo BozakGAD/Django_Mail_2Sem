@@ -1,117 +1,148 @@
-from django.contrib import messages
+import json
+
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth import login, logout
-from django.http import HttpResponseForbidden
-from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.db import models
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 
 from folders.models import Folder
 from users.models import User
 from .models import Email
 
 
-@login_required
-def home(request):
-    return redirect('inbox')
+def _serialize_email(email, current_user):
+    folder = email.recipient_folder if email.recipient_id == current_user.id else email.sender_folder
+    return {
+        "id": email.id,
+        "sender": email.sender.username,
+        "recipient": email.recipient.username,
+        "subject": email.subject,
+        "body": email.body,
+        "is_read": email.is_read,
+        "created_at": email.created_at.isoformat(),
+        "folder": folder.system_name,
+    }
 
 
+@csrf_exempt
+@require_POST
+def register_view(request):
+    payload = json.loads(request.body)
+    user = User.objects.create_user(
+        username=payload["username"],
+        email=payload.get("email", ""),
+        password=payload["password"],
+    )
+    for key, value in Folder.SYSTEM_CHOICES:
+        Folder.objects.get_or_create(user=user, system_name=key, defaults={"name": value})
+    return JsonResponse({"id": user.id, "username": user.username}, status=201)
+
+
+@csrf_exempt
+@require_POST
 def login_view(request):
-    if request.user.is_authenticated:
-        return redirect('inbox')
-    form = AuthenticationForm(request, data=request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        login(request, form.get_user())
-        return redirect('inbox')
-    return render(request, 'login.html', {'form': form})
+    payload = json.loads(request.body)
+    user = authenticate(request, username=payload.get("username"), password=payload.get("password"))
+    if not user:
+        return JsonResponse({"error": "Invalid credentials"}, status=400)
+    login(request, user)
+    return JsonResponse({"message": "Logged in"})
 
 
 @require_POST
 @login_required
 def logout_view(request):
     logout(request)
-    return redirect('login')
+    return JsonResponse({"message": "Logged out"})
 
 
+@csrf_exempt
+@require_POST
 @login_required
-def compose_email(request):
-    users = User.objects.exclude(id=request.user.id).order_by('username')
-    if request.method == 'POST':
-        recipient_id = request.POST.get('recipient_id')
-        recipient = User.objects.filter(id=recipient_id).first()
-        if not recipient:
-            messages.error(request, 'Получатель не найден')
-            return redirect('compose')
-        sender_folder = Folder.objects.get(user=request.user, system_name=Folder.SENT)
-        recipient_folder = Folder.objects.get(user=recipient, system_name=Folder.INBOX)
-        Email.objects.create(
-            sender=request.user,
-            recipient=recipient,
-            subject=request.POST.get('subject', '').strip(),
-            body=request.POST.get('body', '').strip(),
-            sender_folder=sender_folder,
-            recipient_folder=recipient_folder,
-        )
-        messages.success(request, 'Письмо отправлено')
-        return redirect('sent')
-    return render(request, 'compose.html', {'users': users})
+def send_email(request):
+    payload = json.loads(request.body)
+    recipient = User.objects.filter(username=payload.get("recipient")).first()
+    if not recipient:
+        return JsonResponse({"error": "Recipient not found"}, status=404)
+    sender_folder = Folder.objects.get(user=request.user, system_name=Folder.SENT)
+    recipient_folder = Folder.objects.get(user=recipient, system_name=Folder.INBOX)
+    email = Email.objects.create(
+        sender=request.user,
+        recipient=recipient,
+        subject=payload.get("subject", ""),
+        body=payload.get("body", ""),
+        sender_folder=sender_folder,
+        recipient_folder=recipient_folder,
+    )
+    return JsonResponse(_serialize_email(email, request.user), status=201)
 
 
+@require_GET
 @login_required
 def inbox_list(request):
-    emails = Email.objects.filter(recipient=request.user).select_related('sender', 'recipient_folder')
-    return render(request, 'email_list.html', {'emails': emails, 'title': 'Входящие'})
+    emails = Email.objects.filter(recipient=request.user).select_related("sender", "recipient", "recipient_folder")
+    return JsonResponse({"results": [_serialize_email(email, request.user) for email in emails]})
 
 
+@require_GET
 @login_required
 def sent_list(request):
-    emails = Email.objects.filter(sender=request.user).select_related('recipient', 'sender_folder')
-    return render(request, 'email_list.html', {'emails': emails, 'title': 'Исходящие'})
+    emails = Email.objects.filter(sender=request.user).select_related("sender", "recipient", "sender_folder")
+    return JsonResponse({"results": [_serialize_email(email, request.user) for email in emails]})
 
 
+@require_GET
 @login_required
 def folder_list(request, folder_name):
-    emails = Email.objects.filter(recipient=request.user, recipient_folder__system_name=folder_name).select_related('sender', 'recipient_folder')
-    return render(request, 'email_list.html', {'emails': emails, 'title': f'Папка: {folder_name}'})
+    emails = Email.objects.filter(
+        models.Q(recipient=request.user, recipient_folder__system_name=folder_name)
+        | models.Q(sender=request.user, sender_folder__system_name=folder_name)
+    ).select_related("sender", "recipient", "recipient_folder", "sender_folder")
+    return JsonResponse({"results": [_serialize_email(email, request.user) for email in emails]})
 
 
+@require_GET
 @login_required
 def email_detail(request, email_id):
-    email = get_object_or_404(Email, id=email_id)
-    if email.sender_id != request.user.id and email.recipient_id != request.user.id:
-        return HttpResponseForbidden('Доступ запрещен')
+    email = Email.objects.filter(id=email_id).select_related("sender", "recipient", "recipient_folder", "sender_folder").first()
+    if not email or (email.sender_id != request.user.id and email.recipient_id != request.user.id):
+        return JsonResponse({"error": "Email not found"}, status=404)
     if email.recipient_id == request.user.id and not email.is_read:
         email.is_read = True
-        email.save(update_fields=['is_read'])
-    return render(request, 'email_detail.html', {'email': email})
+        email.save(update_fields=["is_read"])
+    return JsonResponse(_serialize_email(email, request.user))
 
 
+@csrf_exempt
 @require_POST
 @login_required
 def move_email(request, email_id):
-    email = get_object_or_404(Email, id=email_id)
-    folder_name = request.POST.get('folder')
-    target_folder = Folder.objects.filter(user=request.user, system_name=folder_name).first()
+    payload = json.loads(request.body)
+    target_folder = Folder.objects.filter(user=request.user, system_name=payload.get("folder")).first()
     if not target_folder:
-        messages.error(request, 'Папка не найдена')
-        return redirect('email-detail', email_id=email.id)
+        return JsonResponse({"error": "Folder not found"}, status=404)
+    email = Email.objects.filter(id=email_id).first()
+    if not email:
+        return JsonResponse({"error": "Email not found"}, status=404)
     if email.recipient_id == request.user.id:
         email.recipient_folder = target_folder
     elif email.sender_id == request.user.id:
         email.sender_folder = target_folder
     else:
-        return HttpResponseForbidden('Доступ запрещен')
-    email.save(update_fields=['recipient_folder', 'sender_folder'])
-    messages.success(request, 'Письмо перемещено')
-    return redirect('email-detail', email_id=email.id)
+        return JsonResponse({"error": "No access"}, status=403)
+    email.save(update_fields=["recipient_folder", "sender_folder"])
+    return JsonResponse(_serialize_email(email, request.user))
 
 
 @require_POST
 @login_required
 def delete_email(request, email_id):
-    email = get_object_or_404(Email, id=email_id)
-    if email.sender_id != request.user.id and email.recipient_id != request.user.id:
-        return HttpResponseForbidden('Доступ запрещен')
-    email.delete()
-    messages.success(request, 'Письмо удалено')
-    return redirect('inbox')
+    email = Email.objects.filter(id=email_id).first()
+    if not email:
+        return JsonResponse({"error": "Email not found"}, status=404)
+    if email.sender_id == request.user.id or email.recipient_id == request.user.id:
+        email.delete()
+        return JsonResponse({"message": "Deleted"})
+    return JsonResponse({"error": "No access"}, status=403)
