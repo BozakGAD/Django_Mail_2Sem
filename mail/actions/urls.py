@@ -8,6 +8,7 @@ urlpatterns = [
     path('register/', views.register_view, name='register'),
     path('password-reset-request/', views.password_reset_request_view, name='password-reset-request'),
     path('logout/', views.logout_view, name='logout'),
+    path('folders/', views.folders_overview, name='folders-overview'),
     path('compose/', views.compose_email, name='compose'),
     path('inbox/', views.inbox_list, name='inbox'),
     path('sent/', views.sent_list, name='sent'),

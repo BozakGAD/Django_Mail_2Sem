@@ -13,11 +13,10 @@ class Email(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата отправки')
     sender_folder = models.ForeignKey(Folder, on_delete=models.PROTECT, related_name='outbox_emails', verbose_name='Папка отправителя')
     recipient_folder = models.ForeignKey(Folder, on_delete=models.PROTECT, related_name='inbox_emails', verbose_name='Папка получателя')
-<<<<<<< codex/implement-email-client-server-with-django-x9147v
     sender_deleted = models.BooleanField(default=False, verbose_name='Удалено отправителем')
     recipient_deleted = models.BooleanField(default=False, verbose_name='Удалено получателем')
-=======
->>>>>>> main
+    sender_deleted = models.BooleanField(default=False, verbose_name='Удалено отправителем')
+    recipient_deleted = models.BooleanField(default=False, verbose_name='Удалено получателем')
 
     class Meta:
         ordering = ['-created_at']

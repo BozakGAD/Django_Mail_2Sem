@@ -9,16 +9,12 @@
 <form method="post" action="{% url 'move-email' email.id %}">
     {% csrf_token %}
     <select name="folder" required>
-<<<<<<< codex/implement-email-client-server-with-django-x9147v
+        {% for folder in folder_choices %}
+            <option value="{{ folder.system_name }}">{{ folder.name }}</option>
+        {% endfor %}
         {% for folder_name in folder_choices %}
             <option value="{{ folder_name }}">{{ folder_name }}</option>
         {% endfor %}
-=======
-        <option value="inbox">Inbox</option>
-        <option value="sent">Sent</option>
-        <option value="archive">Archive</option>
-        <option value="trash">Trash</option>
->>>>>>> main
     </select>
     <button type="submit">Переместить</button>
 </form>
