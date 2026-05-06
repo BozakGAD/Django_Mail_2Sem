@@ -5,7 +5,7 @@
 <p><strong>От:</strong> {{ email.sender.username }}</p>
 <p><strong>Кому:</strong> {{ email.recipient.username }}</p>
 <p><strong>Дата:</strong> {{ email.created_at }}</p>
-<p>{{ email.body|linebreaks }}</p>
+{{ email.body|linebreaks }}
 <form method="post" action="{% url 'move-email' email.id %}">
     {% csrf_token %}
     <select name="folder" required>
@@ -13,10 +13,12 @@
             <option value="{{ folder.system_name }}">{{ folder.name }}</option>
         {% endfor %}
     </select>
-    <button type="submit">Переместить</button>
+    <div style="display: flex; gap: 20px;">
+        <button type="submit">Переместить</button>
 </form>
-<form method="post" action="{% url 'delete-email' email.id %}">
-    {% csrf_token %}
-    <button type="submit">Удалить</button>
-</form>
+        <form method="post" action="{% url 'delete-email' email.id %}">
+            {% csrf_token %}
+            <button type="submit">Удалить</button>
+        </form>
+    </div>
 {% endblock %}
