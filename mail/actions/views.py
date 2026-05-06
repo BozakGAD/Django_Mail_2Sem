@@ -1,13 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from folders.models import Folder
 from users.models import User
+from .forms import RegisterForm
 from .models import Email
 
 
@@ -25,7 +26,7 @@ def home(request):
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('inbox')
-    form = UserCreationForm(request.POST or None)
+    form = RegisterForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         _create_default_folders(user)
