@@ -7,4 +7,6 @@ from .models import Email
 class EmailAdmin(admin.ModelAdmin):
     list_display = ('id', 'sender', 'recipient', 'subject', 'is_read', 'sender_deleted', 'recipient_deleted', 'created_at')
     list_filter = ('is_read', 'sender_deleted', 'recipient_deleted', 'created_at')
+    list_display = ('id', 'sender', 'recipient', 'subject', 'is_read', 'sender_deleted', 'recipient_deleted', 'created_at')
+    list_filter = ('is_read', 'sender_deleted', 'recipient_deleted', 'created_at')
     search_fields = ('subject', 'sender__username', 'recipient__username')
