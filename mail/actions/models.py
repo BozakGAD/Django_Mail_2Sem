@@ -15,8 +15,6 @@ class Email(models.Model):
     recipient_folder = models.ForeignKey(Folder, on_delete=models.PROTECT, related_name='inbox_emails', verbose_name='Папка получателя')
     sender_deleted = models.BooleanField(default=False, verbose_name='Удалено отправителем')
     recipient_deleted = models.BooleanField(default=False, verbose_name='Удалено получателем')
-    sender_deleted = models.BooleanField(default=False, verbose_name='Удалено отправителем')
-    recipient_deleted = models.BooleanField(default=False, verbose_name='Удалено получателем')
 
     class Meta:
         ordering = ['-created_at']

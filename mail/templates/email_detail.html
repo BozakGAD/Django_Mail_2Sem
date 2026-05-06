@@ -12,9 +12,6 @@
         {% for folder in folder_choices %}
             <option value="{{ folder.system_name }}">{{ folder.name }}</option>
         {% endfor %}
-        {% for folder_name in folder_choices %}
-            <option value="{{ folder_name }}">{{ folder_name }}</option>
-        {% endfor %}
     </select>
     <button type="submit">Переместить</button>
 </form>

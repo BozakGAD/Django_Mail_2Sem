@@ -3,6 +3,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm
 from django.http import HttpResponseForbidden
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -117,25 +118,22 @@ def compose_email(request):
 def inbox_list(request):
     emails = Email.objects.filter(recipient=request.user, recipient_deleted=False).select_related('sender', 'recipient_folder')
     return _render(request, 'email_list.html', {'emails': emails, 'title': 'Входящие'})
-    emails = Email.objects.filter(recipient=request.user, recipient_deleted=False).select_related('sender', 'recipient_folder')
-    return render(request, 'email_list.html', {'emails': emails, 'title': 'Входящие'})
 
 
 @login_required
 def sent_list(request):
-    emails = Email.objects.filter(sender=request.user, sender_deleted=False).select_related('recipient', 'sender_folder')
-    return _render(request, 'email_list.html', {'emails': emails, 'title': 'Исходящие'})
-    emails = Email.objects.filter(sender=request.user, sender_deleted=False).select_related('recipient', 'sender_folder')
-    return render(request, 'email_list.html', {'emails': emails, 'title': 'Исходящие'})
+    return redirect('folder-list', folder_name=Folder.SENT)
 
 
 @login_required
 def folder_list(request, folder_name):
     folder_key = folder_name.lower()
-    emails = Email.objects.filter(recipient=request.user, recipient_folder__system_name__iexact=folder_key, recipient_deleted=False).select_related('sender', 'recipient_folder')
-    return _render(request, 'email_list.html', {'emails': emails, 'title': f'Папка: {folder_key}'})
-    emails = Email.objects.filter(recipient=request.user, recipient_folder__system_name=folder_name, recipient_deleted=False).select_related('sender', 'recipient_folder')
-    return render(request, 'email_list.html', {'emails': emails, 'title': f'Папка: {folder_name}'})
+    emails = Email.objects.filter(
+        Q(recipient=request.user, recipient_folder__system_name__iexact=folder_key, recipient_deleted=False)
+        | Q(sender=request.user, sender_folder__system_name__iexact=folder_key, sender_deleted=False)
+    ).select_related('sender', 'recipient', 'recipient_folder', 'sender_folder')
+    titles = {Folder.INBOX: 'Входящие', Folder.SENT: 'Исходящие', Folder.ARCHIVE: 'Архив', Folder.TRASH: 'Корзина'}
+    return _render(request, 'email_list.html', {'emails': emails, 'title': titles.get(folder_key, f'Папка: {folder_key}')})
 
 
 @login_required
@@ -149,15 +147,6 @@ def email_detail(request, email_id):
         if email.recipient_deleted:
             return HttpResponseForbidden('Доступ запрещен')
         allowed_names = [Folder.INBOX, Folder.ARCHIVE, Folder.TRASH]
-    user_folder_choices = []
-    if email.sender_id == request.user.id:
-        if email.sender_deleted:
-            return HttpResponseForbidden('Доступ запрещен')
-        user_folder_choices = [Folder.SENT, Folder.ARCHIVE, Folder.TRASH]
-    elif email.recipient_id == request.user.id:
-        if email.recipient_deleted:
-            return HttpResponseForbidden('Доступ запрещен')
-        user_folder_choices = [Folder.INBOX, Folder.ARCHIVE, Folder.TRASH]
         if not email.is_read:
             email.is_read = True
             email.save(update_fields=['is_read'])
