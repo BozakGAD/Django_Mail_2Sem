@@ -91,31 +91,61 @@ def compose_email(request):
 
 @login_required
 def inbox_list(request):
+<<<<<<< codex/implement-email-client-server-with-django-x9147v
+    emails = Email.objects.filter(recipient=request.user, recipient_deleted=False).select_related('sender', 'recipient_folder')
+=======
     emails = Email.objects.filter(recipient=request.user).select_related('sender', 'recipient_folder')
+>>>>>>> main
     return render(request, 'email_list.html', {'emails': emails, 'title': 'Входящие'})
 
 
 @login_required
 def sent_list(request):
+<<<<<<< codex/implement-email-client-server-with-django-x9147v
+    emails = Email.objects.filter(sender=request.user, sender_deleted=False).select_related('recipient', 'sender_folder')
+=======
     emails = Email.objects.filter(sender=request.user).select_related('recipient', 'sender_folder')
+>>>>>>> main
     return render(request, 'email_list.html', {'emails': emails, 'title': 'Исходящие'})
 
 
 @login_required
 def folder_list(request, folder_name):
+<<<<<<< codex/implement-email-client-server-with-django-x9147v
+    emails = Email.objects.filter(recipient=request.user, recipient_folder__system_name=folder_name, recipient_deleted=False).select_related('sender', 'recipient_folder')
+=======
     emails = Email.objects.filter(recipient=request.user, recipient_folder__system_name=folder_name).select_related('sender', 'recipient_folder')
+>>>>>>> main
     return render(request, 'email_list.html', {'emails': emails, 'title': f'Папка: {folder_name}'})
 
 
 @login_required
 def email_detail(request, email_id):
     email = get_object_or_404(Email, id=email_id)
+<<<<<<< codex/implement-email-client-server-with-django-x9147v
+    user_folder_choices = []
+    if email.sender_id == request.user.id:
+        if email.sender_deleted:
+            return HttpResponseForbidden('Доступ запрещен')
+        user_folder_choices = [Folder.SENT, Folder.ARCHIVE, Folder.TRASH]
+    elif email.recipient_id == request.user.id:
+        if email.recipient_deleted:
+            return HttpResponseForbidden('Доступ запрещен')
+        user_folder_choices = [Folder.INBOX, Folder.ARCHIVE, Folder.TRASH]
+        if not email.is_read:
+            email.is_read = True
+            email.save(update_fields=['is_read'])
+    else:
+        return HttpResponseForbidden('Доступ запрещен')
+    return render(request, 'email_detail.html', {'email': email, 'folder_choices': user_folder_choices})
+=======
     if email.sender_id != request.user.id and email.recipient_id != request.user.id:
         return HttpResponseForbidden('Доступ запрещен')
     if email.recipient_id == request.user.id and not email.is_read:
         email.is_read = True
         email.save(update_fields=['is_read'])
     return render(request, 'email_detail.html', {'email': email})
+>>>>>>> main
 
 
 @require_POST
@@ -127,6 +157,16 @@ def move_email(request, email_id):
     if not target_folder:
         messages.error(request, 'Папка не найдена')
         return redirect('email-detail', email_id=email.id)
+<<<<<<< codex/implement-email-client-server-with-django-x9147v
+    if email.recipient_id == request.user.id and not email.recipient_deleted:
+        email.recipient_folder = target_folder
+        email.save(update_fields=['recipient_folder'])
+    elif email.sender_id == request.user.id and not email.sender_deleted:
+        email.sender_folder = target_folder
+        email.save(update_fields=['sender_folder'])
+    else:
+        return HttpResponseForbidden('Доступ запрещен')
+=======
     if email.recipient_id == request.user.id:
         email.recipient_folder = target_folder
     elif email.sender_id == request.user.id:
@@ -134,6 +174,7 @@ def move_email(request, email_id):
     else:
         return HttpResponseForbidden('Доступ запрещен')
     email.save(update_fields=['recipient_folder', 'sender_folder'])
+>>>>>>> main
     messages.success(request, 'Письмо перемещено')
     return redirect('email-detail', email_id=email.id)
 
@@ -142,8 +183,20 @@ def move_email(request, email_id):
 @login_required
 def delete_email(request, email_id):
     email = get_object_or_404(Email, id=email_id)
+<<<<<<< codex/implement-email-client-server-with-django-x9147v
+    if email.recipient_id == request.user.id:
+        email.recipient_deleted = True
+        email.save(update_fields=['recipient_deleted'])
+    elif email.sender_id == request.user.id:
+        email.sender_deleted = True
+        email.save(update_fields=['sender_deleted'])
+    else:
+        return HttpResponseForbidden('Доступ запрещен')
+    messages.success(request, 'Письмо удалено для вашей стороны')
+=======
     if email.sender_id != request.user.id and email.recipient_id != request.user.id:
         return HttpResponseForbidden('Доступ запрещен')
     email.delete()
     messages.success(request, 'Письмо удалено')
+>>>>>>> main
     return redirect('inbox')
