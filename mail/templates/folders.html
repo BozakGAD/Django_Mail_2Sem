@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Мои папки{% endblock %}
+{% block content %}
+<h2>Мои папки</h2>
+{% for folder in folders %}
+<div class="card">
+    <div><strong>{{ folder.name }}</strong></div>
+    <a class="btn" href="{% url 'folder-list' folder.system_name %}">Открыть</a>
+</div>
+{% empty %}
+<p>Папок пока нет.</p>
+{% endfor %}
+{% endblock %}
