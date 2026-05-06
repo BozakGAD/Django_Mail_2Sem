@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h2>{{ title }}</h2>
+{% for email in emails %}
+<div class="card">
+    <div><strong>Тема:</strong> {{ email.subject }}</div>
+    <div><strong>От:</strong> {{ email.sender.username }}</div>
+    <div><strong>Кому:</strong> {{ email.recipient.username }}</div>
+    <div><strong>Дата:</strong> {{ email.created_at }}</div>
+    <a class="btn" href="{% url 'email-detail' email.id %}">Открыть</a>
+</div>
+{% empty %}
+<p>Писем нет.</p>
+{% endfor %}
+{% endblock %}

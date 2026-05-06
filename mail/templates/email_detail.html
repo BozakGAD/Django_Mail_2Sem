@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}{{ email.subject }}{% endblock %}
+{% block content %}
+<h2>{{ email.subject }}</h2>
+<p><strong>От:</strong> {{ email.sender.username }}</p>
+<p><strong>Кому:</strong> {{ email.recipient.username }}</p>
+<p><strong>Дата:</strong> {{ email.created_at }}</p>
+<p>{{ email.body|linebreaks }}</p>
+<form method="post" action="{% url 'move-email' email.id %}">
+    {% csrf_token %}
+    <select name="folder" required>
+        {% for folder_name in folder_choices %}
+            <option value="{{ folder_name }}">{{ folder_name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Переместить</button>
+</form>
+<form method="post" action="{% url 'delete-email' email.id %}">
+    {% csrf_token %}
+    <button type="submit">Удалить</button>
+</form>
+{% endblock %}
