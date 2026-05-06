@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, UserCreationForm
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -11,10 +11,40 @@ from users.models import User
 from .models import Email
 
 
+def _create_default_folders(user):
+    for system_name, display_name in Folder.SYSTEM_CHOICES:
+        Folder.objects.get_or_create(user=user, system_name=system_name, defaults={'name': display_name})
+
+
 def home(request):
     if request.user.is_authenticated:
         return redirect('inbox')
     return render(request, 'home.html')
+
+
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect('inbox')
+    form = UserCreationForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
+        _create_default_folders(user)
+        login(request, user)
+        messages.success(request, 'Регистрация выполнена успешно')
+        return redirect('inbox')
+    return render(request, 'register.html', {'form': form})
+
+
+def password_reset_request_view(request):
+    form = PasswordResetForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        email = form.cleaned_data['email']
+        if User.objects.filter(email=email).exists():
+            messages.success(request, 'Запрос на сброс пароля принят. Проверьте вашу почту.')
+        else:
+            messages.error(request, 'Пользователь с таким email не найден')
+        return redirect('login')
+    return render(request, 'password_reset_request.html', {'form': form})
 
 
 def login_view(request):
